@@ -8,8 +8,6 @@ plugins {
     id 'net.kyori.blossom' version '2.2.0'
 }
 
-import org.jetbrains.gradle.ext.Gradle
-
 ext {
     //noinspection GroovyAssignabilityCheck
     access_transformer_locations = "${mod_id}_at.cfg"
@@ -139,17 +137,6 @@ idea {
     }
     project {
         settings {
-            runConfigurations {
-                '1. Build'(Gradle) {
-                    taskNames = ["build"]
-                }
-                '2. Run Client'(Gradle) {
-                    taskNames = ["runClient"]
-                }
-                '3. Run Server'(Gradle) {
-                    taskNames = ["runServer"]
-                }
-            }
             compiler.javac {
                 afterEvaluate {
                     javacAdditionalOptions = '-encoding utf8'

@@ -1,6 +1,6 @@
-package com.example.modid;
+package com.amrist.systemcursor;
 
-import com.example.modid.proxy.IProxy;
+import com.amrist.systemcursor.proxy.IProxy;
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.SidedProxy;
@@ -8,12 +8,12 @@ import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-@Mod(modid = Reference.MOD_ID, name = Reference.MOD_NAME, version = Reference.VERSION)
+@Mod(modid = Reference.MOD_ID, name = Reference.MOD_NAME, version = Reference.VERSION, guiFactory = "com.amrist.systemcursor.SystemCursorGuiFactory")
 public class ExampleMod {
 
     public static final Logger LOGGER = LogManager.getLogger(Reference.MOD_NAME);
 
-    @SidedProxy(modId = Reference.MOD_ID, clientSide = "com.example.modid.proxy.ClientProxy", serverSide = "com.example.modid.proxy.CommonProxy")
+    @SidedProxy(modId = Reference.MOD_ID, clientSide = "com.amrist.systemcursor.proxy.ClientProxy", serverSide = "com.amrist.systemcursor.proxy.CommonProxy")
     public static IProxy proxy;
     /**
      * <a href="https://cleanroommc.com/wiki/forge-mod-development/event#overview">
@@ -22,6 +22,7 @@ public class ExampleMod {
      */
     @Mod.EventHandler
     public void preInit(FMLPreInitializationEvent event) {
+        SystemCursorConfig.initialize(event.getSuggestedConfigurationFile());
         LOGGER.info("Hello From {}!", Reference.MOD_NAME);
         LOGGER.info("Proxy is {}", proxy);
         LOGGER.info("Language: {}", Minecraft.getMinecraft().getLanguageManager().getCurrentLanguage());
