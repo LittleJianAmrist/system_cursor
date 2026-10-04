@@ -4,7 +4,7 @@ A Minecraft 1.12.2 Cleanroom mod that brings modern mouse cursor behavior to old
 
 [![Minecraft](https://img.shields.io/badge/Minecraft-1.12.2-green.svg)](https://www.minecraft.net/)
 [![Cleanroom](https://img.shields.io/badge/Loader-Cleanroom-orange.svg)](https://cleanroommc.com/)
-[![Version](https://img.shields.io/badge/Version-0.1.0--alpha.1-blue.svg)](https://github.com/LittleJianAmrist/system_cursosr)
+[![Version](https://img.shields.io/badge/Version-0.0.1--alpha.5-blue.svg)](https://github.com/LittleJianAmrist/system_cursosr)
 
 ## 📖 About
 
