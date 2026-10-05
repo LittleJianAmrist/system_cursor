@@ -13,6 +13,7 @@ import net.minecraft.client.gui.inventory.GuiContainerCreative;
 import net.minecraft.creativetab.CreativeTabs;
 import net.minecraftforge.client.event.GuiScreenEvent;
 import net.minecraftforge.fml.client.event.ConfigChangedEvent;
+import net.minecraftforge.fml.client.config.GuiSlider;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
@@ -38,7 +39,9 @@ public final class SystemCursorHandler {
     private static long handCursor;
     private static long textCursor;
     private static long verticalResizeCursor;
+    private static long horizontalResizeCursor;
     private static long currentCursor;
+    private static Field creativeScrollField;
     private static boolean cursorsInitialized;
     private static boolean cursorErrorLogged;
 
@@ -96,7 +99,10 @@ public final class SystemCursorHandler {
             GuiContainerCreative creativeGui = (GuiContainerCreative) gui;
             int localMouseX = mouseX - creativeGui.getGuiLeft();
             int localMouseY = mouseY - creativeGui.getGuiTop();
-            if (creativeGui.needsScrollBars() && isHovered(175, 18, 12, 112, localMouseX, localMouseY)) {
+            float scroll = getCreativeScroll(creativeGui);
+            int thumbTop = 18 + (int) (97.0F * scroll);
+            if (creativeGui.needsScrollBars() && scroll >= 0.0F && scroll <= 1.0F
+                    && isHovered(175, thumbTop, 12, 15, localMouseX, localMouseY)) {
                 return verticalResizeCursor;
             }
             for (CreativeTabs tab : CreativeTabs.CREATIVE_TAB_ARRAY) {
@@ -106,8 +112,9 @@ public final class SystemCursorHandler {
             }
         }
 
-        if (hasHoveredWidget(gui, gui, mouseX, mouseY, Collections.newSetFromMap(new IdentityHashMap<>()))) {
-            return handCursor;
+        long widgetCursor = findHoveredWidget(gui, gui, mouseX, mouseY, Collections.newSetFromMap(new IdentityHashMap<>()));
+        if (widgetCursor != 0L) {
+            return widgetCursor;
         }
 
         for (GuiTextField textField : findTextFields(gui)) {
@@ -119,25 +126,32 @@ public final class SystemCursorHandler {
         return arrowCursor;
     }
 
-    private static boolean hasHoveredWidget(Object target, GuiScreen rootScreen, int mouseX, int mouseY, Set<Object> visited) {
+    private static long findHoveredWidget(Object target, GuiScreen rootScreen, int mouseX, int mouseY, Set<Object> visited) {
         if (target instanceof GuiScreen && target != rootScreen) {
-            return false;
+            return 0L;
         }
         if (target == null || !visited.add(target)) {
-            return false;
+            return 0L;
+        }
+
+        if (target instanceof GuiSlider) {
+            GuiSlider slider = (GuiSlider) target;
+            return slider.visible && slider.enabled && isHovered(slider.x, slider.y, slider.width, slider.height, mouseX, mouseY)
+                    ? horizontalResizeCursor : 0L;
         }
 
         if (target instanceof GuiButton) {
             GuiButton button = (GuiButton) target;
-            return button.visible && button.enabled && isHovered(button.x, button.y, button.width, button.height, mouseX, mouseY);
+            return button.visible && button.enabled && isHovered(button.x, button.y, button.width, button.height, mouseX, mouseY)
+                    ? handCursor : 0L;
         }
 
         if (target instanceof GuiListExtended && isHoveredListAction((GuiListExtended) target, mouseX, mouseY)) {
-            return true;
+            return handCursor;
         }
 
         if (!(target instanceof Gui) && !(target instanceof GuiSlot) && !(target instanceof GuiListExtended.IGuiListEntry)) {
-            return false;
+            return 0L;
         }
 
         Class<?> type = target.getClass();
@@ -152,18 +166,23 @@ public final class SystemCursorHandler {
                     Object value = field.get(target);
                     if (value instanceof Iterable<?>) {
                         for (Object element : (Iterable<?>) value) {
-                            if (hasHoveredWidget(element, rootScreen, mouseX, mouseY, visited)) {
-                                return true;
+                            long cursor = findHoveredWidget(element, rootScreen, mouseX, mouseY, visited);
+                            if (cursor != 0L) {
+                                return cursor;
                             }
                         }
                     } else if (value != null && value.getClass().isArray()) {
                         for (int index = 0; index < Array.getLength(value); index++) {
-                            if (hasHoveredWidget(Array.get(value, index), rootScreen, mouseX, mouseY, visited)) {
-                                return true;
+                            long cursor = findHoveredWidget(Array.get(value, index), rootScreen, mouseX, mouseY, visited);
+                            if (cursor != 0L) {
+                                return cursor;
                             }
                         }
-                    } else if (hasHoveredWidget(value, rootScreen, mouseX, mouseY, visited)) {
-                        return true;
+                    } else {
+                        long cursor = findHoveredWidget(value, rootScreen, mouseX, mouseY, visited);
+                        if (cursor != 0L) {
+                            return cursor;
+                        }
                     }
                 } catch (Exception ignored) {
                 }
@@ -171,7 +190,7 @@ public final class SystemCursorHandler {
             type = type.getSuperclass();
         }
 
-        return false;
+        return 0L;
     }
 
     private static boolean isHoveredListAction(GuiListExtended list, int mouseX, int mouseY) {
@@ -231,6 +250,30 @@ public final class SystemCursorHandler {
         return mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + height;
     }
 
+    private static float getCreativeScroll(GuiContainerCreative gui) {
+        try {
+            if (creativeScrollField == null) {
+                Field candidate = null;
+                for (Field field : GuiContainerCreative.class.getDeclaredFields()) {
+                    if (field.getType() == float.class) {
+                        if (candidate != null) {
+                            return -1.0F;
+                        }
+                        candidate = field;
+                    }
+                }
+                if (candidate == null) {
+                    return -1.0F;
+                }
+                candidate.setAccessible(true);
+                creativeScrollField = candidate;
+            }
+            return creativeScrollField.getFloat(gui);
+        } catch (Exception ignored) {
+            return -1.0F;
+        }
+    }
+
     private static boolean initializeCursors() {
         if (cursorsInitialized) {
             return true;
@@ -244,7 +287,9 @@ public final class SystemCursorHandler {
             handCursor = GLFW.glfwCreateStandardCursor(GLFW.GLFW_HAND_CURSOR);
             textCursor = GLFW.glfwCreateStandardCursor(GLFW.GLFW_IBEAM_CURSOR);
             verticalResizeCursor = GLFW.glfwCreateStandardCursor(GLFW.GLFW_VRESIZE_CURSOR);
-            if (arrowCursor == 0L || handCursor == 0L || textCursor == 0L || verticalResizeCursor == 0L) {
+            horizontalResizeCursor = GLFW.glfwCreateStandardCursor(GLFW.GLFW_HRESIZE_CURSOR);
+            if (arrowCursor == 0L || handCursor == 0L || textCursor == 0L || verticalResizeCursor == 0L
+                    || horizontalResizeCursor == 0L) {
                 throw new IllegalStateException("GLFW returned an empty standard cursor handle");
             }
             cursorsInitialized = true;
@@ -293,6 +338,10 @@ public final class SystemCursorHandler {
         if (verticalResizeCursor != 0L) {
             GLFW.glfwDestroyCursor(verticalResizeCursor);
             verticalResizeCursor = 0L;
+        }
+        if (horizontalResizeCursor != 0L) {
+            GLFW.glfwDestroyCursor(horizontalResizeCursor);
+            horizontalResizeCursor = 0L;
         }
     }
 
